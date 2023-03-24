@@ -36,8 +36,12 @@ android {
 }
 
 dependencies {
-
+    // add the following line, and replace "1.0.12" with the latest version
+    // of Estimote Android SDK; you'll find the latest version number on:
+    //   https://github.com/Estimote/Android-SDK/releases
+    implementation 'com.estimote:sdk:1.4.5'
     implementation 'androidx.core:core-ktx:1.7.0'
+    implementation 'pub.devrel:easypermissions:3.0.0'
     implementation 'androidx.appcompat:appcompat:1.6.0'
     implementation 'com.google.android.material:material:1.7.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
