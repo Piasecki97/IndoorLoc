@@ -2,56 +2,45 @@ package pl.zgora.uz.indoorloc;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
-import android.annotation.TargetApi;
-import android.app.Activity;
+import android.app.Dialog;
 import android.bluetooth.BluetoothAdapter;
-import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.le.BluetoothLeScanner;
 import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanResult;
-import android.content.BroadcastReceiver;
-import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.pm.PackageManager;
-import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
-import android.os.Handler;
 import android.view.View;
-import android.widget.CheckBox;
-import android.widget.ImageButton;
-import android.widget.ImageView;
-import android.widget.TableLayout;
-import android.widget.TableRow;
+import android.view.Window;
+import android.widget.Button;
+import android.widget.LinearLayout;
 import android.widget.TextView;
-import android.widget.Toast;
 
-import androidx.activity.result.ActivityResult;
-import androidx.activity.result.ActivityResultCallback;
-import androidx.activity.result.ActivityResultLauncher;
-import androidx.activity.result.contract.ActivityResultContracts;
-import androidx.appcompat.app.AlertDialog;
+import com.estimote.coresdk.common.requirements.SystemRequirementsChecker;
+
+import java.util.HashMap;
+import java.util.Map;
+
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
-import androidx.recyclerview.widget.RecyclerView;
-import pl.zgora.uz.indoorloc.service.LocationService;
+import pl.zgora.uz.indoorloc.estimote.EstimoteService;
+import pl.zgora.uz.indoorloc.view.DeviceView;
 
 public class MainActivity extends AppCompatActivity {
-    RecyclerView rv;
-    ConstraintLayout cl;
+    public Map<String, DeviceView> devices = new HashMap<>();
 
+    public LinearLayout ll_layout;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         BluetoothManager bluetoothManager = getSystemService(BluetoothManager.class);
         BluetoothAdapter bluetoothAdapter = bluetoothManager.getAdapter();
-
+        SystemRequirementsChecker.checkWithDefaultDialogs(this);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        ll_layout = findViewById(R.id.ll_layout);
+        EstimoteService service = new EstimoteService(this);
+
 
         if (!bluetoothAdapter.isEnabled()) {
             Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
@@ -64,16 +53,28 @@ public class MainActivity extends AppCompatActivity {
 
 
         }
+        service.findDevice(getBaseContext());
         BluetoothLeScanner bluetoothLeScanner = bluetoothAdapter.getBluetoothLeScanner();
         bluetoothLeScanner.startScan(new ScanCallback() {
             @SuppressLint("MissingPermission")
             @Override
             public void onScanResult(int callbackType, ScanResult result) {
                 super.onScanResult(callbackType, result);
-                System.out.println(result.getDevice().getName());
-                Toast.makeText(MainActivity.this, Integer.toString(result.getRssi()), Toast.LENGTH_LONG);
+                String btAddress = result.getDevice().getAddress();
+                if(devices.containsKey(btAddress)) {
+                    DeviceView dv = devices.get(btAddress);
+                    if(dv != null) {
+                        dv.setRssiPowerText(result.getRssi());
+                    }
+                } else if(result.getDevice().getName() != null && !result.getDevice().getName().isEmpty()) {
+                    DeviceView view =
+                            new DeviceView(ll_layout.getContext(), result.getDevice().getName(), result.getRssi());
+                    ll_layout.addView(view);
+                    devices.put(result.getDevice().getAddress(), view);
+                }
             }
         });
     }
+
 
 }

@@ -1,7 +1,6 @@
 package pl.zgora.uz.indoorloc.service
 
 import org.junit.Test
-import pl.zgora.uz.indoorloc.model.Point
 
 class LocationServiceTest {
     val service = LocationService()
