@@ -2,7 +2,6 @@ package pl.zgora.uz.indoorloc;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
-import android.app.Dialog;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.le.BluetoothLeScanner;
@@ -10,24 +9,34 @@ import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanResult;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Typeface;
+import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Bundle;
-import android.view.View;
-import android.view.Window;
-import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import com.estimote.coresdk.common.requirements.SystemRequirementsChecker;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
+import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
+import pl.zgora.uz.indoorloc.database.DatabaseClient;
 import pl.zgora.uz.indoorloc.estimote.EstimoteService;
+import pl.zgora.uz.indoorloc.model.BtFoundModel;
+import pl.zgora.uz.indoorloc.model.CalibratedBluetoothDevice;
+import pl.zgora.uz.indoorloc.model.DeviceState;
 import pl.zgora.uz.indoorloc.view.DeviceView;
 
+
 public class MainActivity extends AppCompatActivity {
+    public List<CalibratedBluetoothDevice> calibratedDevices = new ArrayList<>();
+
     public Map<String, DeviceView> devices = new HashMap<>();
 
     public LinearLayout ll_layout;
@@ -36,6 +45,7 @@ public class MainActivity extends AppCompatActivity {
         BluetoothManager bluetoothManager = getSystemService(BluetoothManager.class);
         BluetoothAdapter bluetoothAdapter = bluetoothManager.getAdapter();
         SystemRequirementsChecker.checkWithDefaultDialogs(this);
+        fetchCalibratedDevices();
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         ll_layout = findViewById(R.id.ll_layout);
@@ -56,25 +66,58 @@ public class MainActivity extends AppCompatActivity {
         service.findDevice(getBaseContext());
         BluetoothLeScanner bluetoothLeScanner = bluetoothAdapter.getBluetoothLeScanner();
         bluetoothLeScanner.startScan(new ScanCallback() {
+            @RequiresApi(api = Build.VERSION_CODES.O)
             @SuppressLint("MissingPermission")
             @Override
             public void onScanResult(int callbackType, ScanResult result) {
                 super.onScanResult(callbackType, result);
-                String btAddress = result.getDevice().getAddress();
-                if(devices.containsKey(btAddress)) {
-                    DeviceView dv = devices.get(btAddress);
-                    if(dv != null) {
-                        dv.setRssiPowerText(result.getRssi());
-                    }
-                } else if(result.getDevice().getName() != null && !result.getDevice().getName().isEmpty()) {
-                    DeviceView view =
-                            new DeviceView(ll_layout.getContext(), result.getDevice().getName(), result.getRssi());
-                    ll_layout.addView(view);
-                    devices.put(result.getDevice().getAddress(), view);
-                }
+                populateDeviceViews(new BtFoundModel(result.getDevice().getName(), result.getDevice().getAddress(), result.getRssi(), false));
             }
         });
     }
 
+    private void fetchCalibratedDevices() {
+        class GetDevices extends AsyncTask<Void, Void, List<CalibratedBluetoothDevice>> {
+            @Override
+            protected List<CalibratedBluetoothDevice> doInBackground(Void... voids) {
+                calibratedDevices = DatabaseClient
+                        .getInstance(getApplicationContext())
+                        .getAppDatabase()
+                        .dataBaseAction()
+                        .getAll();
+                return calibratedDevices;
+            }
+        }
+        GetDevices savedTasks = new GetDevices();
+        savedTasks.execute();
+    }
+
+    public void populateDeviceViews(BtFoundModel bfm) {
+        if(devices.containsKey(bfm.macAddress)) {
+            DeviceView dv = devices.get(bfm.macAddress);
+
+            if(dv != null) {
+                for (CalibratedBluetoothDevice calDev: calibratedDevices) {
+                    if(calDev.getMacAddress().equals(bfm.macAddress)) {
+                        dv.setRefferenceRssi(calDev.getMeasuredPower());
+                        dv.setMacAddress(calDev.getMacAddress());
+                        TextView dtv = dv.getDeviceNameView();
+                        dv.getBt().setText(DeviceState.Configured.label);
+                        dv.setDeviceNameView(dtv);
+                        dv.setCalibratedBluetoothDevice(calDev);
+                    }
+                }
+                dv.setRssiPowerText(bfm.rssi);
+            }
+        } else if(bfm.name != null && !bfm.name.isEmpty()) {
+            DeviceView view =
+                    new DeviceView(ll_layout.getContext(),bfm.macAddress, bfm.rssi);
+            if(bfm.isEstimote) {
+                view.getDeviceNameView().setTypeface(null, Typeface.BOLD_ITALIC);
+            }
+            ll_layout.addView(view);
+            devices.put(bfm.macAddress, view);
+        }
+    }
 
 }

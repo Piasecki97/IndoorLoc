@@ -39,6 +39,11 @@ dependencies {
     // add the following line, and replace "1.0.12" with the latest version
     // of Estimote Android SDK; you'll find the latest version number on:
     //   https://github.com/Estimote/Android-SDK/releases
+    def room_version = "2.5.1"
+
+    implementation "androidx.room:room-runtime:$room_version"
+    annotationProcessor "androidx.room:room-compiler:$room_version"
+    implementation 'org.apache.commons:commons-math3:3.5'
     implementation 'com.estimote:sdk:1.4.5'
     implementation 'androidx.core:core-ktx:1.7.0'
     implementation 'pub.devrel:easypermissions:3.0.0'

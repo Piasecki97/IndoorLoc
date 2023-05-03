@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.UUID;
 
 import pl.zgora.uz.indoorloc.MainActivity;
+import pl.zgora.uz.indoorloc.model.BtFoundModel;
 import pl.zgora.uz.indoorloc.view.DeviceView;
 
 public class EstimoteService {
@@ -31,41 +32,13 @@ public class EstimoteService {
         BeaconManager beaconManager = new BeaconManager(context);
 
 
-        // this will make the beacon attempt to detect Connectivity packets for 10 seconds,
-        // then wait 5 seconds before the next detection, then repeat the cycle
-        beaconManager.setForegroundScanPeriod(10000, 5000);
-        beaconManager.setBackgroundScanPeriod(10000, 5000);
+        beaconManager.setForegroundScanPeriod(500, 300);
+        beaconManager.setBackgroundScanPeriod(500, 300);
 
-        // this connects to an underlying service, not to the beacon (-;
         beaconManager.connect(() -> {
-            beaconManager.setMonitoringListener(new BeaconManager.BeaconMonitoringListener() {
-                @Override
-                public void onEnteredRegion(BeaconRegion beaconRegion, List<Beacon> beacons) {
-                    for (Beacon b: beacons) {
-                        if(activity.devices.containsKey(b.getMacAddress())) {
-                            activity.devices.get(b.getMacAddress()).setRefferenceRssi(b.getMeasuredPower());
-                        }
-                    }
-                }
-
-                @Override
-                public void onExitedRegion(BeaconRegion beaconRegion) {
-                    // Do nothing
-                }
-            });
             beaconManager.setConfigurableDevicesListener(configurableDevices -> {
                 for (ConfigurableDevice device : configurableDevices) {
-                    String address = device.macAddress.toStandardString();
-                    if (activity.devices.containsKey(address)) {
-                        DeviceView dv = activity.devices.get(address);
-                        dv.setRssiPowerText(device.rssi);
-                    } else {
-                        DeviceView view =
-                                new DeviceView(context, device.deviceId.toString().substring(0,15), device.rssi);
-                        view.getDeviceNameView().setTypeface(null, Typeface.BOLD_ITALIC);
-                        activity.ll_layout.addView(view);
-                        activity.devices.put(address, view);
-                    }
+                    activity.populateDeviceViews(new BtFoundModel(device.deviceId.toString().substring(0, 15), device.deviceId.toString(), device.rssi, true));
                 }
             });
             beaconManager.startConfigurableDevicesDiscovery();
