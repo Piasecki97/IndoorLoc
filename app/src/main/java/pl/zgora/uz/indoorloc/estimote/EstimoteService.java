@@ -2,6 +2,7 @@ package pl.zgora.uz.indoorloc.estimote;
 
 import android.content.Context;
 import android.graphics.Typeface;
+import android.util.Log;
 
 import com.estimote.coresdk.observation.region.beacon.BeaconRegion;
 import com.estimote.coresdk.recognition.packets.Beacon;
@@ -32,12 +33,13 @@ public class EstimoteService {
         BeaconManager beaconManager = new BeaconManager(context);
 
 
-        beaconManager.setForegroundScanPeriod(500, 300);
-        beaconManager.setBackgroundScanPeriod(500, 300);
+        beaconManager.setForegroundScanPeriod(500, 500);
+        beaconManager.setBackgroundScanPeriod(500, 500);
 
         beaconManager.connect(() -> {
             beaconManager.setConfigurableDevicesListener(configurableDevices -> {
                 for (ConfigurableDevice device : configurableDevices) {
+                    Log.println(Log.DEBUG, EstimoteService.class.getName(), "Found device " + device.deviceId);
                     activity.populateDeviceViews(new BtFoundModel(device.deviceId.toString().substring(0, 15), device.deviceId.toString(), device.rssi, true));
                 }
             });

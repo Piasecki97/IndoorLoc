@@ -1,78 +1,82 @@
 package pl.zgora.uz.indoorloc;
 
-import android.Manifest;
-import android.annotation.SuppressLint;
-import android.bluetooth.BluetoothAdapter;
-import android.bluetooth.BluetoothManager;
-import android.bluetooth.le.BluetoothLeScanner;
-import android.bluetooth.le.ScanCallback;
-import android.bluetooth.le.ScanResult;
-import android.content.Intent;
-import android.content.pm.PackageManager;
+import android.app.Dialog;
 import android.graphics.Typeface;
 import android.os.AsyncTask;
-import android.os.Build;
 import android.os.Bundle;
+import android.util.Base64;
+import android.view.Window;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
+import android.widget.Button;
+import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.estimote.coresdk.common.requirements.SystemRequirementsChecker;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 
-import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
+import androidx.webkit.WebViewAssetLoader;
+import io.github.sceneview.SceneView;
+import jmini3d.Renderer3d;
+import jmini3d.ScreenController;
+import jmini3d.android.input.InputController;
 import pl.zgora.uz.indoorloc.database.DatabaseClient;
 import pl.zgora.uz.indoorloc.estimote.EstimoteService;
 import pl.zgora.uz.indoorloc.model.BtFoundModel;
 import pl.zgora.uz.indoorloc.model.CalibratedBluetoothDevice;
 import pl.zgora.uz.indoorloc.model.DeviceState;
+import pl.zgora.uz.indoorloc.service.BeaconService;
 import pl.zgora.uz.indoorloc.view.DeviceView;
+import pl.zgora.uz.indoorloc.visual.LocalContentWebViewClient;
 
 
 public class MainActivity extends AppCompatActivity {
     public List<CalibratedBluetoothDevice> calibratedDevices = new ArrayList<>();
 
-    public Map<String, DeviceView> devices = new HashMap<>();
+    public Set<String> devices = new HashSet<>();
 
     public LinearLayout ll_layout;
+
+    public Button calculatePosition;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        BluetoothManager bluetoothManager = getSystemService(BluetoothManager.class);
-        BluetoothAdapter bluetoothAdapter = bluetoothManager.getAdapter();
+
         SystemRequirementsChecker.checkWithDefaultDialogs(this);
         fetchCalibratedDevices();
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         ll_layout = findViewById(R.id.ll_layout);
-        EstimoteService service = new EstimoteService(this);
+        calculatePosition = findViewById(R.id.calculatePosition);
+        EstimoteService estimoteService = new EstimoteService(this);
+        BeaconService beaconService = new BeaconService();
 
 
-        if (!bluetoothAdapter.isEnabled()) {
-            Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+        estimoteService.findDevice(getBaseContext());
+//        beaconService.findDevice(this);
 
-            startActivityForResult(enableBtIntent, 0);
-        }
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED ||
-                ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.BLUETOOTH_ADMIN, Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION}, 0);
+        calculatePosition.setOnClickListener(listener -> {
+            fetchCalibratedDevices();
 
-
-        }
-        service.findDevice(getBaseContext());
-        BluetoothLeScanner bluetoothLeScanner = bluetoothAdapter.getBluetoothLeScanner();
-        bluetoothLeScanner.startScan(new ScanCallback() {
-            @RequiresApi(api = Build.VERSION_CODES.O)
-            @SuppressLint("MissingPermission")
-            @Override
-            public void onScanResult(int callbackType, ScanResult result) {
-                super.onScanResult(callbackType, result);
-                populateDeviceViews(new BtFoundModel(result.getDevice().getName(), result.getDevice().getAddress(), result.getRssi(), false));
-            }
+            showWebviewModal(beaconService);
+//            if (calibratedDevices.size() < 4) {
+//                Toast.makeText(getApplicationContext(), "You need more than 3 devices to calculate position", Toast.LENGTH_LONG).show();
+//            } else {
+//                showPositionModal(beaconService);
+//            }
         });
     }
 
@@ -93,12 +97,14 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void populateDeviceViews(BtFoundModel bfm) {
-        if(devices.containsKey(bfm.macAddress)) {
-            DeviceView dv = devices.get(bfm.macAddress);
+        CalibratedBluetoothDevice relatedCalibratedDevice = null;
+        if (devices.contains(bfm.macAddress)) {
+            DeviceView dv = findViewById(bfm.macAddress.hashCode());
 
-            if(dv != null) {
-                for (CalibratedBluetoothDevice calDev: calibratedDevices) {
-                    if(calDev.getMacAddress().equals(bfm.macAddress)) {
+            for (CalibratedBluetoothDevice calDev : calibratedDevices) {
+                if (calDev.getMacAddress().equals(bfm.macAddress)) {
+                    relatedCalibratedDevice = calDev;
+                    if (dv != null) {
                         dv.setRefferenceRssi(calDev.getMeasuredPower());
                         dv.setMacAddress(calDev.getMacAddress());
                         TextView dtv = dv.getDeviceNameView();
@@ -107,17 +113,80 @@ public class MainActivity extends AppCompatActivity {
                         dv.setCalibratedBluetoothDevice(calDev);
                     }
                 }
-                dv.setRssiPowerText(bfm.rssi);
             }
-        } else if(bfm.name != null && !bfm.name.isEmpty()) {
+            if (dv != null) {
+                dv.setRssiPowerText(bfm.rssi);
+                dv.invalidate();
+            }
+            if(relatedCalibratedDevice != null) {
+                BeaconService.devicesDistances.put(bfm.macAddress, EstimoteService.rssiToDistance(bfm.rssi,relatedCalibratedDevice.getMeasuredPower(), 3));
+            }
+        } else if (bfm.name != null && !bfm.name.isEmpty()) {
             DeviceView view =
-                    new DeviceView(ll_layout.getContext(),bfm.macAddress, bfm.rssi);
-            if(bfm.isEstimote) {
+                    new DeviceView(ll_layout.getContext(), bfm.name, bfm.macAddress, bfm.rssi);
+            if (bfm.isEstimote) {
                 view.getDeviceNameView().setTypeface(null, Typeface.BOLD_ITALIC);
             }
             ll_layout.addView(view);
-            devices.put(bfm.macAddress, view);
+            devices.add(bfm.macAddress);
         }
     }
 
+    void showWebviewModal(BeaconService service) {
+        final Dialog dialog = new Dialog(this);
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        dialog.setCancelable(true);
+        dialog.setContentView(R.layout.three_js_activity);
+        WebView wv = dialog.findViewById(R.id.webView);
+        wv.getSettings().setJavaScriptEnabled(true);
+        wv.getSettings().setPluginState(WebSettings.PluginState.ON);
+        wv.getSettings().setAllowFileAccess(true);
+        wv.getSettings().setAllowContentAccess(true);
+        wv.getSettings().setAllowFileAccessFromFileURLs(true);
+        wv.getSettings().setAllowUniversalAccessFromFileURLs(true);
+        WebViewAssetLoader assetLoader = new WebViewAssetLoader.Builder()
+                .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
+                .addPathHandler("/res/", new WebViewAssetLoader.ResourcesPathHandler(this))
+                .build();
+        wv.setWebViewClient(new LocalContentWebViewClient(assetLoader));
+        wv.loadUrl("file:///android_asset/index.html");
+        dialog.show();
+    }
+    void showPositionModal(BeaconService service) {
+        final Dialog dialog = new Dialog(this);
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        dialog.setCancelable(true);
+        dialog.setContentView(R.layout.position_view);
+        AtomicBoolean runCalculations = new AtomicBoolean(true);
+        TextView tx = dialog.findViewById(R.id.curX);
+        TextView ty = dialog.findViewById(R.id.curY);
+        TextView tz = dialog.findViewById(R.id.curZ);
+        Button ok = dialog.findViewById(R.id.okBtn);
+        Thread t = new Thread() {
+            @Override
+            public void run() {
+                while (runCalculations.get()) {
+                    double[] positions = service.calculatePosition(calibratedDevices);
+                    runOnUiThread(() -> {
+                        tx.setText(String.valueOf(positions[0]));
+                        ty.setText(String.valueOf(positions[1]));
+                        tz.setText(String.valueOf(positions[2]));
+                    });
+                    try {
+                        sleep(1000);
+                    } catch (InterruptedException e) {
+                        throw new RuntimeException(e);
+                    }
+
+                }
+            }
+        };
+        dialog.show();
+
+        t.start();
+        ok.setOnClickListener(listener -> {
+            runCalculations.set(false);
+            dialog.dismiss();
+        });
+    }
 }

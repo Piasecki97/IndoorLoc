@@ -2,7 +2,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     package="pl.zgora.uz.indoorloc">
-
     <application
 
         android:allowBackup="true"
@@ -25,6 +24,11 @@
             </intent-filter>
         </activity>
     </application>
+    <uses-permission
+        android:name="android.permission.INTERNET"
+
+        tools:node="replace"
+        tools:remove="android:maxSdkVersion" />
     <uses-permission
         android:name="android.permission.ACCESS_COARSE_LOCATION"
         

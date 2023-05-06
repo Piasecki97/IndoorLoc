@@ -46,6 +46,7 @@ public class DeviceView extends LinearLayout {
         this.macAddress = macAddress;
     }
     public void setRssiPowerText(Integer rssi) {
+        this.rssi = rssi;
         String text = Integer.toString(rssi);
         if (calibratedBluetoothDevice != null) {
             Double distance = EstimoteService.rssiToDistance(rssi, refferenceRssi, 3);
@@ -55,6 +56,7 @@ public class DeviceView extends LinearLayout {
             bt.setText("Calibrated");
             bt.setTextSize(9);
             bt.setBackgroundColor(Color.GREEN);
+            deviceNameView.setText(calibratedBluetoothDevice.getFriendlyName());
         }
         rssiView.setText(text);
     }
@@ -67,8 +69,9 @@ public class DeviceView extends LinearLayout {
         this.rssiView = rssiView;
     }
 
-    public DeviceView(Context context, String deviceName, Integer rssi) {
+    public DeviceView(Context context, String deviceName, String macAddress, Integer rssi) {
         super(context);
+        this.setId(macAddress.hashCode());
         this.setOrientation(LinearLayout.HORIZONTAL);
         this.macAddress = deviceName;
         this.deviceName = deviceName;
