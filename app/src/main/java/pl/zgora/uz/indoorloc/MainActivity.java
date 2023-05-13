@@ -4,23 +4,16 @@ import android.app.Dialog;
 import android.graphics.Typeface;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.util.Base64;
 import android.view.Window;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.widget.Button;
-import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import com.estimote.coresdk.common.requirements.SystemRequirementsChecker;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -29,10 +22,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.webkit.WebViewAssetLoader;
-import io.github.sceneview.SceneView;
-import jmini3d.Renderer3d;
-import jmini3d.ScreenController;
-import jmini3d.android.input.InputController;
 import pl.zgora.uz.indoorloc.database.DatabaseClient;
 import pl.zgora.uz.indoorloc.estimote.EstimoteService;
 import pl.zgora.uz.indoorloc.model.BtFoundModel;
@@ -51,6 +40,10 @@ public class MainActivity extends AppCompatActivity {
     public LinearLayout ll_layout;
 
     public Button calculatePosition;
+    public Button clearDevices;
+
+    BeaconService beaconService;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -62,22 +55,25 @@ public class MainActivity extends AppCompatActivity {
         ll_layout = findViewById(R.id.ll_layout);
         calculatePosition = findViewById(R.id.calculatePosition);
         EstimoteService estimoteService = new EstimoteService(this);
-        BeaconService beaconService = new BeaconService();
+        beaconService = new BeaconService();
 
 
         estimoteService.findDevice(getBaseContext());
-//        beaconService.findDevice(this);
 
         calculatePosition.setOnClickListener(listener -> {
             fetchCalibratedDevices();
 
-            showWebviewModal(beaconService);
-//            if (calibratedDevices.size() < 4) {
-//                Toast.makeText(getApplicationContext(), "You need more than 3 devices to calculate position", Toast.LENGTH_LONG).show();
-//            } else {
-//                showPositionModal(beaconService);
-//            }
+            if (calibratedDevices.size() < 4) {
+                Toast.makeText(getApplicationContext(), "You need more than 3 devices to calculate position", Toast.LENGTH_LONG).show();
+            } else {
+                showWebviewModal();
+            }
         });
+        clearDevices = findViewById(R.id.clear);
+//        clearDevices.setOnClickListener(l -> {
+//            deleteCalibratedDevices();
+//            calibratedDevices = new ArrayList<>();
+//        });
     }
 
     private void fetchCalibratedDevices() {
@@ -96,6 +92,22 @@ public class MainActivity extends AppCompatActivity {
         savedTasks.execute();
     }
 
+    private void deleteCalibratedDevices() {
+        class DeleteDevices extends AsyncTask<Void, Void, Integer> {
+            @Override
+            protected Integer doInBackground(Void... voids) {
+                DatabaseClient
+                        .getInstance(getApplicationContext())
+                        .getAppDatabase()
+                        .dataBaseAction()
+                        .deleteAll();
+
+                return 0;
+            }
+        }
+        DeleteDevices deleteDevices = new DeleteDevices();
+        deleteDevices.execute();
+    }
     public void populateDeviceViews(BtFoundModel bfm) {
         CalibratedBluetoothDevice relatedCalibratedDevice = null;
         if (devices.contains(bfm.macAddress)) {
@@ -132,7 +144,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    void showWebviewModal(BeaconService service) {
+    void showWebviewModal() {
         final Dialog dialog = new Dialog(this);
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
         dialog.setCancelable(true);
@@ -148,7 +160,7 @@ public class MainActivity extends AppCompatActivity {
                 .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
                 .addPathHandler("/res/", new WebViewAssetLoader.ResourcesPathHandler(this))
                 .build();
-        wv.setWebViewClient(new LocalContentWebViewClient(assetLoader));
+        wv.setWebViewClient(new LocalContentWebViewClient(assetLoader, beaconService, calibratedDevices));
         wv.loadUrl("file:///android_asset/index.html");
         dialog.show();
     }

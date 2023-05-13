@@ -11,11 +11,11 @@ public class CalibratedBluetoothDevice {
     @NonNull
     private final String macAddress;
 
-    private final String friendlyName;
+    public String friendlyName;
     private final Integer measuredPower;
-    private final Double x;
-    private final Double y;
-    private final Double z;
+    public Double x;
+    public Double y;
+    public Double z;
 
     @Ignore
     private Double distance;

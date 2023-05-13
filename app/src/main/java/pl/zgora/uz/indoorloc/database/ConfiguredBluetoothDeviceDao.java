@@ -19,4 +19,7 @@ public interface ConfiguredBluetoothDeviceDao {
 
     @Query("SELECT * FROM devices")
     List<CalibratedBluetoothDevice> getAll();
+
+    @Query("DELETE FROM devices")
+    public void deleteAll();
 }

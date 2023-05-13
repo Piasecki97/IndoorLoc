@@ -116,20 +116,17 @@ public class DeviceView extends LinearLayout {
             ty.setText(calibratedBluetoothDevice.getY().toString());
             tz.setText(calibratedBluetoothDevice.getZ().toString());
         }
-            Thread t = new Thread() {
-                @Override
-                public void run() {
-                    while (true) {
-                        tv.setText(getRssiView().getText());
-                        try {
-                            sleep(1000);
-                        } catch (InterruptedException e) {
-                            return;
-                        }
-
+            Thread t = new Thread(() -> {
+                while (true) {
+                    tv.setText(getRssiView().getText());
+                    try {
+                        Thread.sleep(1000);
+                    } catch (InterruptedException e) {
+                        return;
                     }
+
                 }
-            };
+            });
         if(calibratedBluetoothDevice == null) {
             t.start();
         } else {
@@ -148,7 +145,14 @@ public class DeviceView extends LinearLayout {
             if(calibratedBluetoothDevice == null) {
                 refferenceRssi = Integer.parseInt(getRssiView().getText().toString());
             }
-            calibratedBluetoothDevice = new CalibratedBluetoothDevice(macAddress, name, refferenceRssi, x, y, z);
+            if (calibratedBluetoothDevice != null) {
+                calibratedBluetoothDevice = new CalibratedBluetoothDevice(macAddress, name, refferenceRssi, x, y, z);
+            } else {
+                calibratedBluetoothDevice.friendlyName = name;
+                calibratedBluetoothDevice.x = x;
+                calibratedBluetoothDevice.y = y;
+                calibratedBluetoothDevice.z = z;
+            }
             class InsertDevices extends AsyncTask<Void, Void, Integer> {
                 @Override
                 protected Integer doInBackground(Void... voids) {
