@@ -29,6 +29,7 @@ import pl.zgora.uz.indoorloc.trilateration.TrilaterationFunction;
 
 public class BeaconService {
     public static Map<String, Double> devicesDistances = new HashMap<>();
+    public static double[] previousPosition = null;
     Boolean positionsSet = false;
 
 
@@ -52,8 +53,21 @@ public class BeaconService {
 
         TrilaterationFunction trilaterationFunction = new TrilaterationFunction(positions, distances);
         NonLinearLeastSquaresSolver solver = new NonLinearLeastSquaresSolver(trilaterationFunction, new LevenbergMarquardtOptimizer());
-        return solver.solve().getPoint().toArray();
+        double[] calculatedPosition = solver.solve().getPoint().toArray();
+        if (previousPosition != null) {
+            Double distance = Math.sqrt(Math.pow(calculatedPosition[0] - previousPosition[0], 2) + Math.pow(calculatedPosition[1] - previousPosition[1], 2) + Math.pow(calculatedPosition[2] - previousPosition[2], 2));
+            // we measure each second so calculate velocity in m/s
+            // if > 10km/h which is approx 2.7 m/s ignore this read
+            Double velocity = distance/100;
+            if (velocity > 2.7) {
+                calculatedPosition = previousPosition;
+            }
+        } else {
+            previousPosition = calculatedPosition;
+        }
+        return calculatedPosition;
     }
+
 
     public void findDevice(MainActivity activity) {
         BluetoothManager bluetoothManager = activity.getSystemService(BluetoothManager.class);

@@ -1,10 +1,18 @@
 package pl.zgora.uz.indoorloc.visual;
 
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebView;
 
+import com.estimote.coresdk.repackaged.okhttp_v2_2_0.com.squareup.okhttp.MediaType;
+import com.estimote.coresdk.repackaged.okhttp_v2_2_0.com.squareup.okhttp.OkHttpClient;
+import com.estimote.coresdk.repackaged.okhttp_v2_2_0.com.squareup.okhttp.Request;
+import com.estimote.coresdk.repackaged.okhttp_v2_2_0.com.squareup.okhttp.RequestBody;
+import com.estimote.coresdk.repackaged.okhttp_v2_2_0.com.squareup.okhttp.Response;
+
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -18,7 +26,9 @@ import pl.zgora.uz.indoorloc.model.CalibratedBluetoothDevice;
 import pl.zgora.uz.indoorloc.service.BeaconService;
 
 public class LocalContentWebViewClient extends WebViewClientCompat {
+    public static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
 
+    private OkHttpClient client = new OkHttpClient();
     private final WebViewAssetLoader mAssetLoader;
     AtomicBoolean isLoaded;
     BeaconService beaconService;
@@ -60,13 +70,22 @@ public class LocalContentWebViewClient extends WebViewClientCompat {
                         } catch (Exception e ) {
                             positions = new double[]{0.0, 0.0, 0.0};
                         }
+
+                        String url = "http://192.168.0.153:8080/pushDevice";
+                        String json = "{\"id\": \""+MainActivity.DEVICE_ID +"\", " +
+                                "\"x\": "+positions[0]+", " +
+                                "\"y\": "+positions[1]+", " +
+                                "\"z\": "+positions[2] +
+                                "}";
+
+                        new AsyncTaskRunner().execute(url, json);
                         wv.evaluateJavascript(
                                 "updateLoc("+ positions[0] + ", " + positions[1] + ", " + positions[2] + ");", null
                         );
 
                     });
                     try {
-                        Thread.sleep(3000);
+                        Thread.sleep(1000);
                     } catch (InterruptedException e) {
                         throw new RuntimeException(e);
                     }
@@ -76,6 +95,38 @@ public class LocalContentWebViewClient extends WebViewClientCompat {
         t.start();
 
 
+    }
+
+    private class AsyncTaskRunner extends AsyncTask<String, Void, String> {
+
+        @Override
+        protected String doInBackground(String... params) {
+            String url = params[0];
+            String json = params[1];
+            String responseString = null;
+            try {
+                responseString = post(url, json);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return responseString;
+        }
+
+        @Override
+        protected void onPostExecute(String result) {
+            // This is where you handle the response
+            System.out.println(result);
+        }
+    }
+
+    String post(String url, String json) throws IOException {
+        RequestBody body = RequestBody.create(JSON, json);
+        Request request = new Request.Builder()
+                .url(url)
+                .post(body)
+                .build();
+        Response response = client.newCall(request).execute();
+        return response.body().string();
     }
 
     public void drawBeacons(WebView webView) {
@@ -90,9 +141,6 @@ public class LocalContentWebViewClient extends WebViewClientCompat {
 
         }
         webView.evaluateJavascript(jsDeviceShape.toString(), null);
-
-
-
     }
 
 }

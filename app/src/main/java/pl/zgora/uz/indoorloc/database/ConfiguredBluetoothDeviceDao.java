@@ -22,4 +22,7 @@ public interface ConfiguredBluetoothDeviceDao {
 
     @Query("DELETE FROM devices")
     public void deleteAll();
+
+    @Query("DELETE FROM devices WHERE macAddress IN ('[d0a9179bf056c3', '[649e49a16f0b0b')")
+    public void deleteUselessDevices();
 }

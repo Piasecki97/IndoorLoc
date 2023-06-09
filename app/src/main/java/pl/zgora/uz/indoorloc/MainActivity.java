@@ -4,11 +4,13 @@ import android.app.Dialog;
 import android.graphics.Typeface;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.view.Window;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.widget.Button;
 import android.widget.LinearLayout;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -35,8 +37,10 @@ import pl.zgora.uz.indoorloc.visual.LocalContentWebViewClient;
 public class MainActivity extends AppCompatActivity {
     public List<CalibratedBluetoothDevice> calibratedDevices = new ArrayList<>();
 
+
     public Set<String> devices = new HashSet<>();
 
+    public static String DEVICE_ID;
     public LinearLayout ll_layout;
 
     public Button calculatePosition;
@@ -48,6 +52,8 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
 
+        DEVICE_ID = Settings.Secure.getString(getContentResolver(),
+                Settings.Secure.ANDROID_ID);
         SystemRequirementsChecker.checkWithDefaultDialogs(this);
         fetchCalibratedDevices();
         super.onCreate(savedInstanceState);
@@ -59,7 +65,9 @@ public class MainActivity extends AppCompatActivity {
 
 
         estimoteService.findDevice(getBaseContext());
-
+//      [649e49a16f0b0b
+//      [d0a9179bf056c3
+        deleteCalibratedDevice();
         calculatePosition.setOnClickListener(listener -> {
             fetchCalibratedDevices();
 
@@ -70,10 +78,8 @@ public class MainActivity extends AppCompatActivity {
             }
         });
         clearDevices = findViewById(R.id.clear);
-//        clearDevices.setOnClickListener(l -> {
-//            deleteCalibratedDevices();
-//            calibratedDevices = new ArrayList<>();
-//        });
+//        Spinner spinner = findViewById(R.id.spinner);
+
     }
 
     private void fetchCalibratedDevices() {
@@ -90,6 +96,24 @@ public class MainActivity extends AppCompatActivity {
         }
         GetDevices savedTasks = new GetDevices();
         savedTasks.execute();
+    }
+
+    private void deleteCalibratedDevice() {
+        class DeleteDevices extends AsyncTask<Void, Void, Integer> {
+            @Override
+            protected Integer doInBackground(Void... c) {
+
+                    DatabaseClient
+                            .getInstance(getApplicationContext())
+                            .getAppDatabase()
+                            .dataBaseAction()
+                            .deleteUselessDevices();
+
+                return 0;
+            }
+        }
+        DeleteDevices deleteDevices = new DeleteDevices();
+        deleteDevices.execute();
     }
 
     private void deleteCalibratedDevices() {

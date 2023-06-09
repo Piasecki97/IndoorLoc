@@ -21,7 +21,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
+const camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 2000 );
 
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize( window.innerWidth, window.innerHeight );
@@ -54,13 +54,14 @@ window.animate = function animate() {
 	renderer.render( scene, camera );
 
 }
-var geometry = new THREE.BoxGeometry( 300, 0.1, 300 );
-var wall1 = new THREE.BoxGeometry( 300, 150, 0.1 );
-var wall2 = new THREE.BoxGeometry( 0.1, 150, 300 );
+var roomSize = 500
+var geometry = new THREE.BoxGeometry( roomSize, 0.1, roomSize );
+var wall1 = new THREE.BoxGeometry( roomSize, roomSize/2, 0.1 );
+var wall2 = new THREE.BoxGeometry( 0.1, roomSize/2, roomSize );
 
 scene.add( directionalLight );
 const light = new THREE.PointLight( 0xFFFFFF, 1, 1010 );
-light.position.set( 100, 100, 20 );
+light.position.set( 300, 100, 200 );
 light.castShadow = true;
 scene.add( light );
 
@@ -73,16 +74,16 @@ groundTexture.encoding = THREE.sRGBEncoding;
 var groundMaterial = new THREE.MeshStandardMaterial( { map: groundTexture } );
 
 var plane = new THREE.Mesh( geometry, groundMaterial );
-plane.position.z = 150
-plane.position.x = 150
+plane.position.z = roomSize/2
+plane.position.x = roomSize/2
 var plane2 = new THREE.Mesh( wall1, groundMaterial );
 plane2.position.z=0;
-plane2.position.x=150;
-plane2.position.y=75;
+plane2.position.x=roomSize/2;
+plane2.position.y=roomSize/4;
 var plane3 = new THREE.Mesh( wall2, groundMaterial );
-plane3.position.x=300
-plane3.position.z=150
-plane3.position.y=75
+plane3.position.x=roomSize
+plane3.position.z=roomSize/2
+plane3.position.y=roomSize/4
 directionalLight.castShadow = true;
 scene.add( plane );
 scene.add( plane2 );
